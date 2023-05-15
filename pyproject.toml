@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "codemod"
+version = "1.0.0"
+description = "Codemod is a tool/library to assist you with large-scale codebase refactors that can be partially automated but still require human oversight and occasional intervention. Codemod was developed at Facebook and released as open source."
+readme = "README.md"
+authors = [{name = "Facebook", email = "facebook@facebook.com"}]
+license = "Apache-2.0"
+homepage = "http://github.com/facebook/codemod"
+
+[project.urls]
+Source = "http://github.com/facebook/codemod"
+
+[project.scripts]
+codemod = "codemod.base:main"
+
+[project.packages]
+include = [""]
+
+[project.optional-dependencies]
+test = ["flake8", "pytest"]
