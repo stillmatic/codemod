@@ -1,7 +1,9 @@
 import os
 import sys
+from typing import Iterable, Optional, Callable, List, Union, TypeVar
 
 from codemod.position import Position
+from codemod.patch import Patch
 import codemod.helpers as helpers
 
 
@@ -16,9 +18,9 @@ class Query(object):
 
     def __init__(
         self,
-        suggestor,
-        start=None,
-        end=None,
+        suggestor: Callable[[List[str]], List[Patch]],
+        start: Union[Position, str, None] = None,
+        end: Union[Position, str, None] = None,
         root_directory=".",
         path_filter=helpers.path_filter(
             extensions=["php", "phpt", "js", "css", "rb", "erb"]
@@ -82,6 +84,10 @@ class Query(object):
 
     start_position = property(get_start_position)
 
+    @property
+    def start_position(self):
+        return self._get_position("_start")
+
     @start_position.setter
     def start_position(self, value):
         self._start = value
@@ -91,11 +97,15 @@ class Query(object):
 
     end_position = property(get_end_position)
 
+    @property
+    def end_position(self):
+        return self._get_position("_end")
+
     @end_position.setter
     def end_position(self, value):
         self._end = value
 
-    def get_all_patches(self, dont_use_cache=False):
+    def get_all_patches(self, dont_use_cache=False) -> list:
         """
         Computes a list of all patches matching this query, though ignoreing
         self.start_position and self.end_position.
@@ -106,15 +116,17 @@ class Query(object):
         if not dont_use_cache and self._all_patches_cache is not None:
             return self._all_patches_cache
 
-        print("Computing full change list (since you specified a percentage)..."),
-        sys.stdout.flush()  # since print statement ends in comma
+        print(
+            "Computing full change list (since you specified a percentage)...",
+            flush=True,
+        )
 
         endless_query = self.clone()
         endless_query.start_position = endless_query.end_position = None
         self._all_patches_cache = list(endless_query.generate_patches())
         return self._all_patches_cache
 
-    def compute_percentile(self, percentage):
+    def compute_percentile(self, percentage: int) -> Position:
         """
         Returns a Position object that represents percentage%-far-of-the-way
         through the larger task, as specified by this query.
@@ -168,7 +180,7 @@ class Query(object):
                     lines[:] = list(open(path))
 
     @staticmethod
-    def _walk_directory(root_directory):
+    def _walk_directory(root_directory: str) -> list[str]:
         """
         Generates the paths of all files that are ancestors
         of `root_directory`.
@@ -182,8 +194,15 @@ class Query(object):
         paths.sort()
         return paths
 
+
+    T = TypeVar("T")
+
     @staticmethod
-    def _sublist(items, starting_value, ending_value=None):
+    def _sublist(
+        items: Iterable[T],
+        starting_value: Optional[T] = None,
+        ending_value: Optional[T]=None,
+    ):
         """
         >>> list(Query._sublist((x*x for x in range(1, 100)), 16, 64))
         [16, 25, 36, 49, 64]
@@ -199,7 +218,7 @@ class Query(object):
                 break
 
     @staticmethod
-    def _path_looks_like_code(path):
+    def _path_looks_like_code(path: str):
         """
         >>> Query._path_looks_like_code('/home/jrosenstein/www/profile.php')
         True

@@ -24,6 +24,7 @@ import re
 import sys
 import textwrap
 from math import ceil
+from typing import Callable, Iterable, List, Optional, Union
 
 from codemod.patch import Patch
 from codemod.position import Position
@@ -34,7 +35,12 @@ import codemod.terminal_helper as terminal
 yes_to_all = False
 
 
-def run_interactive(query: Query, editor=None, just_count=False, default_no=False):
+def run_interactive(
+    query: Query,
+    editor: Optional[str] = None,
+    just_count: bool = False,
+    default_no: bool = False,
+):
     """
     Asks the user about each patch suggested by the result of the query.
 
@@ -45,6 +51,7 @@ def run_interactive(query: Query, editor=None, just_count=False, default_no=Fals
                         environment variable.
     @param just_count   If true: don't run normally.  Just print out number of
                         places in the codebase where the query matches.
+    @param default_no   If true: default to 'no' when asking about a patch.
     """
     global yes_to_all
 
@@ -84,7 +91,10 @@ def run_interactive(query: Query, editor=None, just_count=False, default_no=Fals
         )
 
 
-def line_transformation_suggestor(line_transformation, line_filter=None):
+def line_transformation_suggestor(
+    line_transformation: Callable[[str], Optional[str]],
+    line_filter: Optional[Callable[[str], bool]] = None,
+) -> Callable[[List[str]], Iterable[Patch]]:
     """
     Returns a suggestor (a function that takes a list of lines and yields
     patches) where suggestions are the result of line-by-line transformations.
@@ -103,7 +113,7 @@ def line_transformation_suggestor(line_transformation, line_filter=None):
                                 returned the line itself for that line).
     """
 
-    def suggestor(lines):
+    def suggestor(lines: List[str]) -> Iterable[Patch]:
         for line_number, line in enumerate(lines):
             if line_filter and not line_filter(line):
                 continue
@@ -116,21 +126,30 @@ def line_transformation_suggestor(line_transformation, line_filter=None):
     return suggestor
 
 
-def regex_suggestor(regex, substitution=None, ignore_case=False, line_filter=None):
+def regex_suggestor(
+    regex: Union[str, re.Pattern[str]],
+    substitution=None,
+    ignore_case=False,
+    line_filter=None,
+) -> Callable[[List[str]], Iterable[Patch]]:
     if isinstance(regex, str):
-        if ignore_case is False:
-            regex = re.compile(regex)
-        else:
+        if ignore_case:
             regex = re.compile(regex, re.IGNORECASE)
+        else:
+            regex = re.compile(regex)
 
-    if substitution is None:
-        line_transformation = lambda line: None if regex.search(line) else line
-    else:
+    if substitution:
         line_transformation = lambda line: regex.sub(substitution, line)
+    else:
+        line_transformation = lambda line: None if regex.search(line) else line
     return line_transformation_suggestor(line_transformation, line_filter)
 
 
-def multiline_regex_suggestor(regex, substitution=None, ignore_case=False):
+def multiline_regex_suggestor(
+    regex: Union[str, re.Pattern[str]],
+    substitution: Optional[Union[str, Callable[[re.Match[str]], str]]] = None,
+    ignore_case=False,
+):
     """
     Return a suggestor function which, given a list of lines, generates patches
     to substitute matches of the given regex with (if provided) the given
@@ -143,16 +162,13 @@ def multiline_regex_suggestor(regex, substitution=None, ignore_case=False):
                          function (that takes a match object as input).
     """
     if isinstance(regex, str):
-        if ignore_case is False:
-            regex = re.compile(regex, re.DOTALL | re.MULTILINE)
-        else:
+        if ignore_case:
             regex = re.compile(regex, re.DOTALL | re.MULTILINE | re.IGNORECASE)
+        else:
+            regex = re.compile(regex, re.DOTALL | re.MULTILINE)
 
     if isinstance(substitution, str):
-
-        def substitution_func(match):
-            return match.expand(substitution)
-
+        substitution_func = lambda match: match.expand(substitution)
     else:
         substitution_func = substitution
 
@@ -165,28 +181,31 @@ def multiline_regex_suggestor(regex, substitution=None, ignore_case=False):
             start_row, start_col = _index_to_row_col(lines, match.start())
             end_row, end_col = _index_to_row_col(lines, match.end() - 1)
 
-            if substitution is None:
-                new_lines = None
-            else:
-                # TODO: ugh, this is hacky.  Clearly I need to rewrite
-                # this to use
-                # character-level patches, rather than line-level patches.
-                new_lines = substitution_func(match)
-                if new_lines is not None:
-                    new_lines = "".join(
-                        (
-                            lines[start_row][:start_col],
-                            new_lines,
-                            lines[end_row][end_col + 1 :],
+            if substitution:
+                if substitution_func:
+                    # TODO: ugh, this is hacky.  Clearly I need to rewrite
+                    # this to use
+                    # character-level patches, rather than line-level patches.
+                    new_lines = substitution_func(match)
+                    if new_lines is not None:
+                        new_lines = "".join(
+                            (
+                                lines[start_row][:start_col],
+                                new_lines,
+                                lines[end_row][end_col + 1 :],
+                            )
                         )
-                    )
+                else:
+                    new_lines = None
+            else:
+                new_lines = None
 
             yield Patch(
                 start_line_number=start_row,
                 end_line_number=end_row + 1,
                 new_lines=new_lines,
             )
-            delta = 1 if new_lines is None else min(1, len(new_lines))
+            delta = min(1, len(new_lines)) if new_lines else 1
             pos = match.start() + delta
 
     return suggestor
@@ -224,9 +243,8 @@ def print_patch(patch, lines_to_print, file_lines=None):
     start_context_line_number = patch.start_line_number - size_of_up_context
     end_context_line_number = patch.end_line_number + size_of_down_context
 
-    def print_file_line(line_number):  # noqa
-        # Why line_number is passed here?
-        print("  %s" % file_lines[i], end="") if (0 <= i < len(file_lines)) else "~\n"
+    def print_file_line(line_number): 
+        print("  %s" % file_lines[line_number], end="") if (0 <= i < len(file_lines)) else "~\n"
 
     for i in range(start_context_line_number, patch.start_line_number):
         print_file_line(i)

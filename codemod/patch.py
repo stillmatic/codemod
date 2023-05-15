@@ -1,3 +1,4 @@
+from typing import Optional, List
 from codemod.position import Position
 
 
@@ -20,8 +21,12 @@ class Patch(object):
     """
 
     def __init__(
-        self, start_line_number, end_line_number=None, new_lines=None, path=None
-    ):  # noqa
+        self,
+        start_line_number: int,
+        end_line_number: Optional[int] = None,
+        new_lines=None,
+        path=None,
+    ):
         """
         Constructs a Patch object.
 
@@ -45,15 +50,13 @@ class Patch(object):
         """
         self.path = path
         self.start_line_number = start_line_number
-        self.end_line_number = end_line_number
+        self.end_line_number = end_line_number or start_line_number + 1
         self.new_lines = new_lines
 
-        if self.end_line_number is None:
-            self.end_line_number = self.start_line_number + 1
         if isinstance(self.new_lines, str):
             self.new_lines = self.new_lines.splitlines(True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "Patch(%s)" % ", ".join(
             map(
                 repr,
@@ -66,12 +69,12 @@ class Patch(object):
             )
         )
 
-    def apply_to(self, lines):
+    def apply_to(self, lines: List[str]) -> None:
         if self.new_lines is None:
             raise ValueError("Can't apply patch without suggested new lines.")
         lines[self.start_line_number : self.end_line_number] = self.new_lines
 
-    def render_range(self):
+    def render_range(self) -> str:
         path = self.path or "<unknown>"
         if not self.end_line_number:
             return "%s:%d" % (path, self.start_line_number)

@@ -1,8 +1,9 @@
+from typing import List, Optional, Callable
 import fnmatch
 import os
 
 
-def is_extensionless(path):
+def is_extensionless(path: str) -> bool:
     """
     Returns True if path has no extension.
 
@@ -21,7 +22,7 @@ def is_extensionless(path):
     return ext == ""
 
 
-def matches_extension(path, extension):
+def matches_extension(path: str, extension: str):
     """
     Returns True if path has the given extension, or if
     the last path component matches the extension. Supports
@@ -45,7 +46,7 @@ def matches_extension(path, extension):
         return fnmatch.fnmatch(ext[1:], extension)
 
 
-def path_filter(extensions, exclude_paths=None):
+def path_filter(extensions: List[str], exclude_paths: Optional[List[str]] = None) -> Callable[[str], bool]:
     """
     Returns a function that returns True if a filepath is acceptable.
 
@@ -78,7 +79,7 @@ def path_filter(extensions, exclude_paths=None):
     """
     exclude_paths = exclude_paths or []
 
-    def the_filter(path):
+    def the_filter(path: str) -> bool:
         if not any(matches_extension(path, extension) for extension in extensions):
             return False
         if exclude_paths:
