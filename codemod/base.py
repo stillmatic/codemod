@@ -18,8 +18,6 @@
 #
 # @author Justin Rosenstein
 
-from __future__ import print_function
-
 import argparse
 import os
 import re
@@ -34,8 +32,6 @@ import codemod.helpers as helpers
 import codemod.terminal_helper as terminal
 
 yes_to_all = False
-if sys.version_info[0] >= 3:
-    unicode = str
 
 
 def run_interactive(query, editor=None, just_count=False, default_no=False):

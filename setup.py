@@ -1,7 +1,4 @@
-try:
-    from setuptools import setup, find_packages
-except ImportError:
-    from distutils.core import setup, find_packages
+from setuptools import setup, find_packages
 
 description = (
     'Codemod is a tool/library to assist you with large-scale codebase '
@@ -23,10 +20,11 @@ setup(
     include_package_data=True,
     zip_safe=False,
     platforms='any',
-    entry_points='''
-        [console_scripts]
-        codemod=codemod.base:main
-    ''',
+    entry_points={
+        'console_scripts': [
+            'codemod=codemod.base:main'
+        ]
+    },
     tests_require=['flake8', 'pytest'],
     test_suite='py.test'
 )

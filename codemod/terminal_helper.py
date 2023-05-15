@@ -1,8 +1,6 @@
 """
 Functions for working with the terminal.
 """
-from __future__ import print_function
-
 import os
 import sys
 
