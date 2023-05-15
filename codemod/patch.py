@@ -19,8 +19,9 @@ class Patch(object):
     Patch('x.php', 2, 4, ['X', 'Y', 'Z'])
     """
 
-    def __init__(self, start_line_number, end_line_number=None, new_lines=None,
-                 path=None):  # noqa
+    def __init__(
+        self, start_line_number, end_line_number=None, new_lines=None, path=None
+    ):  # noqa
         """
         Constructs a Patch object.
 
@@ -53,28 +54,33 @@ class Patch(object):
             self.new_lines = self.new_lines.splitlines(True)
 
     def __repr__(self):
-        return 'Patch(%s)' % ', '.join(map(repr, [
-            self.path,
-            self.start_line_number,
-            self.end_line_number,
-            self.new_lines
-        ]))
+        return "Patch(%s)" % ", ".join(
+            map(
+                repr,
+                [
+                    self.path,
+                    self.start_line_number,
+                    self.end_line_number,
+                    self.new_lines,
+                ],
+            )
+        )
 
     def apply_to(self, lines):
         if self.new_lines is None:
-            raise ValueError('Can\'t apply patch without suggested new lines.')
-        lines[self.start_line_number:self.end_line_number] = self.new_lines
+            raise ValueError("Can't apply patch without suggested new lines.")
+        lines[self.start_line_number : self.end_line_number] = self.new_lines
 
     def render_range(self):
-        path = self.path or '<unknown>'
+        path = self.path or "<unknown>"
+        if not self.end_line_number:
+            return "%s:%d" % (path, self.start_line_number)
         if self.start_line_number == self.end_line_number - 1:
-            return '%s:%d' % (path, self.start_line_number)
+            return "%s:%d" % (path, self.start_line_number)
         else:
-            return '%s:%d-%d' % (
-                path,
-                self.start_line_number, self.end_line_number - 1
-            )
+            return "%s:%d-%d" % (path, self.start_line_number, self.end_line_number - 1)
 
     def get_start_position(self):
         return Position(self.path, self.start_line_number)
+
     start_position = property(get_start_position)

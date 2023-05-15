@@ -27,18 +27,18 @@ class Position(object):
                 self.path, self.line_number = arg.path, arg.line_number
             else:
                 try:
-                    self.path, line_number_s = arg.split(':')
+                    self.path, line_number_s = arg.split(":")
                     self.line_number = int(line_number_s)
                 except ValueError:
                     raise ValueError(
-                        'inappropriately formatted Position string: %s'
+                        "inappropriately formatted Position string: %s"
                         % path_and_line_number[0]
                     )
         else:
-            raise TypeError('Position takes 1 or 2 arguments')
+            raise TypeError("Position takes 1 or 2 arguments")
 
     def __repr__(self):
-        return 'Position(%s, %d)' % (repr(self.path), self.line_number)
+        return "Position(%s, %d)" % (repr(self.path), self.line_number)
 
     def __str__(self):
-        return '%s:%d' % (self.path, self.line_number)
+        return "%s:%d" % (self.path, self.line_number)

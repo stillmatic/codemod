@@ -34,7 +34,7 @@ import codemod.terminal_helper as terminal
 yes_to_all = False
 
 
-def run_interactive(query, editor=None, just_count=False, default_no=False):
+def run_interactive(query: Query, editor=None, just_count=False, default_no=False):
     """
     Asks the user about each patch suggested by the result of the query.
 
@@ -51,15 +51,14 @@ def run_interactive(query, editor=None, just_count=False, default_no=False):
     # Load start from bookmark, if appropriate.
     bookmark = _load_bookmark()
     if bookmark:
-        print('Resume where you left off, at %s (y/n)? '
-              % str(bookmark), end=' ')
+        print("Resume where you left off, at %s (y/n)? " % str(bookmark), end=" ")
         sys.stdout.flush()
-        if (_prompt(default='y') == 'y'):
+        if _prompt(default="y") == "y":
             query.start_position = bookmark
 
     # Okay, enough of this foolishness of computing start and end.
     # Let's ask the user about some one line diffs!
-    print('Searching for first instance...')
+    print("Searching for first instance...")
     suggestions = query.generate_patches()
 
     if just_count:
@@ -73,7 +72,7 @@ def run_interactive(query, editor=None, just_count=False, default_no=False):
     for patch in suggestions:
         _save_bookmark(patch.start_position)
         _ask_about_patch(patch, editor, default_no)
-        print('Searching...')
+        print("Searching...")
     _delete_bookmark()
     if yes_to_all:
         terminal.terminal_clear()
@@ -103,6 +102,7 @@ def line_transformation_suggestor(line_transformation, line_filter=None):
                                 a line is ignored (as if line_transformation
                                 returned the line itself for that line).
     """
+
     def suggestor(lines):
         for line_number, line in enumerate(lines):
             if line_filter and not line_filter(line):
@@ -112,11 +112,11 @@ def line_transformation_suggestor(line_transformation, line_filter=None):
                 yield Patch(line_number)
             else:
                 yield Patch(line_number, new_lines=[candidate])
+
     return suggestor
 
 
-def regex_suggestor(regex, substitution=None, ignore_case=False,
-                    line_filter=None):
+def regex_suggestor(regex, substitution=None, ignore_case=False, line_filter=None):
     if isinstance(regex, str):
         if ignore_case is False:
             regex = re.compile(regex)
@@ -124,11 +124,9 @@ def regex_suggestor(regex, substitution=None, ignore_case=False,
             regex = re.compile(regex, re.IGNORECASE)
 
     if substitution is None:
-        def line_transformation(line):
-            return None if regex.search(line) else line
+        line_transformation = lambda line: None if regex.search(line) else line
     else:
-        def line_transformation(line):
-            return regex.sub(substitution, line)
+        line_transformation = lambda line: regex.sub(substitution, line)
     return line_transformation_suggestor(line_transformation, line_filter)
 
 
@@ -151,15 +149,17 @@ def multiline_regex_suggestor(regex, substitution=None, ignore_case=False):
             regex = re.compile(regex, re.DOTALL | re.MULTILINE | re.IGNORECASE)
 
     if isinstance(substitution, str):
+
         def substitution_func(match):
             return match.expand(substitution)
+
     else:
         substitution_func = substitution
 
     def suggestor(lines):
         pos = 0
         while True:
-            match = regex.search(''.join(lines), pos)
+            match = regex.search("".join(lines), pos)
             if not match:
                 break
             start_row, start_col = _index_to_row_col(lines, match.start())
@@ -173,16 +173,18 @@ def multiline_regex_suggestor(regex, substitution=None, ignore_case=False):
                 # character-level patches, rather than line-level patches.
                 new_lines = substitution_func(match)
                 if new_lines is not None:
-                    new_lines = ''.join((
-                        lines[start_row][:start_col],
-                        new_lines,
-                        lines[end_row][end_col + 1:]
-                    ))
+                    new_lines = "".join(
+                        (
+                            lines[start_row][:start_col],
+                            new_lines,
+                            lines[end_row][end_col + 1 :],
+                        )
+                    )
 
             yield Patch(
                 start_line_number=start_row,
                 end_line_number=end_row + 1,
-                new_lines=new_lines
+                new_lines=new_lines,
             )
             delta = 1 if new_lines is None else min(1, len(new_lines))
             pos = match.start() + delta
@@ -199,14 +201,14 @@ def _index_to_row_col(lines, index):
     (1, 1)
     """
     if index < 0:
-        raise IndexError('negative index')
+        raise IndexError("negative index")
     current_index = 0
     for line_number, line in enumerate(lines):
         line_length = len(line)
         if current_index + line_length > index:
             return line_number, index - current_index
         current_index += line_length
-    raise IndexError('index %d out of range' % index)
+    raise IndexError("index %d out of range" % index)
 
 
 def print_patch(patch, lines_to_print, file_lines=None):
@@ -224,19 +226,18 @@ def print_patch(patch, lines_to_print, file_lines=None):
 
     def print_file_line(line_number):  # noqa
         # Why line_number is passed here?
-        print('  %s' % file_lines[i], end='') if (
-            0 <= i < len(file_lines)) else '~\n',
+        print("  %s" % file_lines[i], end="") if (0 <= i < len(file_lines)) else "~\n"
 
     for i in range(start_context_line_number, patch.start_line_number):
         print_file_line(i)
     for i in range(patch.start_line_number, patch.end_line_number):
         if patch.new_lines is not None:
-            terminal.terminal_print('- %s' % file_lines[i], color='RED')
+            terminal.terminal_print("- %s" % file_lines[i], color="RED")
         else:
-            terminal.terminal_print('* %s' % file_lines[i], color='YELLOW')
+            terminal.terminal_print("* %s" % file_lines[i], color="YELLOW")
     if patch.new_lines is not None:
         for line in patch.new_lines:
-            terminal.terminal_print('+ %s' % line, color='GREEN')
+            terminal.terminal_print("+ %s" % line, color="GREEN")
     for i in range(patch.end_line_number, end_context_line_number):
         print_file_line(i)
 
@@ -244,9 +245,9 @@ def print_patch(patch, lines_to_print, file_lines=None):
 def _ask_about_patch(patch, editor, default_no):
     global yes_to_all
 
-    default_action = 'n' if default_no else 'y'
+    default_action = "n" if default_no else "y"
     terminal.terminal_clear()
-    terminal.terminal_print('%s\n' % patch.render_range(), color='WHITE')
+    terminal.terminal_print("%s\n" % patch.render_range(), color="WHITE")
     print()
 
     lines = list(open(patch.path))
@@ -258,31 +259,37 @@ def _ask_about_patch(patch, editor, default_no):
     if patch.new_lines is not None:
         if not yes_to_all:
             if default_no:
-                print('Accept change (y = yes, n = no [default], e = edit, ' +
-                      'A = yes to all, E = yes+edit, q = quit)? '),
+                print(
+                    "Accept change (y = yes, n = no [default], e = edit, "
+                    + "A = yes to all, E = yes+edit, q = quit)? ",
+                    flush=True,
+                )
             else:
-                print('Accept change (y = yes [default], n = no, e = edit, ' +
-                      'A = yes to all, E = yes+edit, q = quit)? '),
-            p = _prompt('yneEAq', default=default_action)
+                print(
+                    "Accept change (y = yes [default], n = no, e = edit, "
+                    + "A = yes to all, E = yes+edit, q = quit)? ",
+                    flush=True,
+                )
+            p = _prompt("yneEAq", default=default_action)
         else:
-            p = 'y'
+            p = "y"
     else:
-        print('(e = edit [default], n = skip line, q = quit)? ', end=" ")
-        p = _prompt('enq', default='e')
+        print("(e = edit [default], n = skip line, q = quit)? ", end=" ", flush=True)
+        p = _prompt("enq", default="e")
 
-    if p in 'A':
+    if p in "A":
         yes_to_all = True
-        p = 'y'
-    if p in 'yE':
+        p = "y"
+    if p in "yE":
         patch.apply_to(lines)
         _save(patch.path, lines)
-    if p in 'eE':
+    if p in "eE":
         run_editor(patch.start_position, editor)
-    if p in 'q':
+    if p in "q":
         sys.exit(0)
 
 
-def _prompt(letters='yn', default=None):
+def _prompt(letters="yn", default=None):
     """
     Wait for the user to type a character (and hit Enter).  If the user enters
     one of the characters in `letters`, return that character.  If the user
@@ -296,21 +303,21 @@ def _prompt(letters='yn', default=None):
             sys.exit(0)
         if input_text and input_text in letters:
             return input_text
-        if default is not None and input_text == '':
+        if default is not None and input_text == "":
             return default
-        print('Come again?')
+        print("Come again?")
 
 
 def _save(path, lines):
-    file_w = open(path, 'w')
+    file_w = open(path, "w")
     for line in lines:
         file_w.write(line)
     file_w.close()
 
 
 def run_editor(position, editor=None):
-    editor = editor or os.environ.get('EDITOR') or 'vim'
-    os.system('%s +%d %s' % (editor, position.line_number + 1, position.path))
+    editor = editor or os.environ.get("EDITOR") or "vim"
+    os.system("%s +%d %s" % (editor, position.line_number + 1, position.path))
 
 
 #
@@ -319,15 +326,16 @@ def run_editor(position, editor=None):
 # an interactive sesh.
 #
 
+
 def _save_bookmark(position):
-    file_w = open('.codemod.bookmark', 'w')
+    file_w = open(".codemod.bookmark", "w")
     file_w.write(str(position))
     file_w.close()
 
 
 def _load_bookmark():
     try:
-        bookmark_file = open('.codemod.bookmark')
+        bookmark_file = open(".codemod.bookmark")
     except IOError:
         return None
     contents = bookmark_file.readline().strip()
@@ -337,7 +345,7 @@ def _load_bookmark():
 
 def _delete_bookmark():
     try:
-        os.remove('.codemod.bookmark')
+        os.remove(".codemod.bookmark")
     except OSError:
         pass  # file didn't exist
 
@@ -346,12 +354,14 @@ def _delete_bookmark():
 # Code to make this run as an executable from the command line.
 #
 
+
 def _parse_command_line():
     global yes_to_all
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description=textwrap.dedent(r"""
+        description=textwrap.dedent(
+            r"""
             codemod.py is a tool/library to assist you with large-scale
             codebase refactors
             that can be partially automated but still require
@@ -372,8 +382,10 @@ def _parse_command_line():
                                        the <font> tag with a <span>
             tag), reject it, or edit the line in question
             in your $EDITOR of choice.
-            """),
-        epilog=textwrap.dedent(r"""
+            """
+        ),
+        epilog=textwrap.dedent(
+            r"""
             You can also use codemod for transformations that are much
             more sophisticated
             than regular expression substitution.  Rather than using
@@ -387,67 +399,117 @@ def _parse_command_line():
             See the documentation for the Query class for details.
 
             @author Justin Rosenstein
-            """)
+            """
+        ),
     )
 
-    parser.add_argument('-m', action='store_true',
-                        help='Have regex work over multiple lines '
-                             '(e.g. have dot match newlines). '
-                             'By default, codemod applies the regex one '
-                             'line at a time.')
-    parser.add_argument('-d', action='store', type=str, default='.',
-                        help='The path whose descendent files '
-                             'are to be explored. '
-                             'Defaults to current dir.')
-    parser.add_argument('-i', action='store_true',
-                        help='Perform case-insensitive search.')
+    parser.add_argument(
+        "-m",
+        action="store_true",
+        help="Have regex work over multiple lines "
+        "(e.g. have dot match newlines). "
+        "By default, codemod applies the regex one "
+        "line at a time.",
+    )
+    parser.add_argument(
+        "-d",
+        action="store",
+        type=str,
+        default=".",
+        help="The path whose descendent files "
+        "are to be explored. "
+        "Defaults to current dir.",
+    )
+    parser.add_argument(
+        "-i", action="store_true", help="Perform case-insensitive search."
+    )
 
-    parser.add_argument('--start', action='store', type=str,
-                        help='A path:line_number-formatted position somewhere'
-                             ' in the hierarchy from which to being exploring,'
-                             'or a percentage (e.g. "--start 25%%") of '
-                             'the way through to start.'
-                             'Useful if you\'re divvying up the '
-                             'substitution task across multiple people.')
-    parser.add_argument('--end', action='store', type=str,
-                        help='A path:line_number-formatted position '
-                             'somewhere in the hierarchy just *before* '
-                             'which we should stop exploring, '
-                             'or a percentage of the way through, '
-                             'just before which to end.')
+    parser.add_argument(
+        "--start",
+        action="store",
+        type=str,
+        help="A path:line_number-formatted position somewhere"
+        " in the hierarchy from which to being exploring,"
+        'or a percentage (e.g. "--start 25%%") of '
+        "the way through to start."
+        "Useful if you're divvying up the "
+        "substitution task across multiple people.",
+    )
+    parser.add_argument(
+        "--end",
+        action="store",
+        type=str,
+        help="A path:line_number-formatted position "
+        "somewhere in the hierarchy just *before* "
+        "which we should stop exploring, "
+        "or a percentage of the way through, "
+        "just before which to end.",
+    )
 
-    parser.add_argument('--extensions', action='store',
-                        default='*', type=str,
-                        help='A comma-delimited list of file extensions '
-                             'to process. Also supports Unix pattern '
-                             'matching.')
-    parser.add_argument('--include-extensionless', action='store_true',
-                        help='If set, this will check files without '
-                        'an extension, along with any matching file '
-                        'extensions passed in --extensions')
-    parser.add_argument('--exclude-paths', action='store', type=str,
-                        help='A comma-delimited list of paths to exclude.')
+    parser.add_argument(
+        "--extensions",
+        action="store",
+        default="*",
+        type=str,
+        help="A comma-delimited list of file extensions "
+        "to process. Also supports Unix pattern "
+        "matching.",
+    )
+    parser.add_argument(
+        "--include-extensionless",
+        action="store_true",
+        help="If set, this will check files without "
+        "an extension, along with any matching file "
+        "extensions passed in --extensions",
+    )
+    parser.add_argument(
+        "--exclude-paths",
+        action="store",
+        type=str,
+        help="A comma-delimited list of paths to exclude.",
+    )
 
-    parser.add_argument('--accept-all', action='store_true',
-                        help='Automatically accept all '
-                             'changes (use with caution).')
+    parser.add_argument(
+        "--accept-all",
+        action="store_true",
+        help="Automatically accept all " "changes (use with caution).",
+    )
 
-    parser.add_argument('--default-no', action='store_true',
-                        help='If set, this will make the default '
-                             'option to not accept the change.')
+    parser.add_argument(
+        "--default-no",
+        action="store_true",
+        help="If set, this will make the default " "option to not accept the change.",
+    )
 
-    parser.add_argument('--editor', action='store', type=str,
-                        help='Specify an editor, e.g. "vim" or emacs". '
-                        'If omitted, defaults to $EDITOR environment '
-                        'variable.')
-    parser.add_argument('--count', action='store_true',
-                        help='Don\'t run normally.  Instead, just print '
-                             'out number of times places in the codebase '
-                             'where the \'query\' matches.')
-    parser.add_argument('match', nargs='?', action='store', type=str,
-                        help='Regular expression to match.')
-    parser.add_argument('subst', nargs='?', action='store', type=str,
-                        help='Substitution to replace with.')
+    parser.add_argument(
+        "--editor",
+        action="store",
+        type=str,
+        help='Specify an editor, e.g. "vim" or emacs". '
+        "If omitted, defaults to $EDITOR environment "
+        "variable.",
+    )
+    parser.add_argument(
+        "--count",
+        action="store_true",
+        help="Don't run normally.  Instead, just print "
+        "out number of times places in the codebase "
+        "where the 'query' matches.",
+    )
+    parser.add_argument(
+        "match",
+        nargs="?",
+        action="store",
+        type=str,
+        help="Regular expression to match.",
+    )
+    parser.add_argument(
+        "subst",
+        nargs="?",
+        action="store",
+        type=str,
+        help="Substitution to replace with.",
+    )
 
     arguments = parser.parse_args()
     if not arguments.match:
@@ -456,30 +518,29 @@ def _parse_command_line():
     query_options = {}
     yes_to_all = arguments.accept_all
 
-    query_options['suggestor'] = (
+    query_options["suggestor"] = (
         multiline_regex_suggestor if arguments.m else regex_suggestor
     )(arguments.match, arguments.subst, arguments.i)
 
-    query_options['start'] = arguments.start
-    query_options['end'] = arguments.end
-    query_options['root_directory'] = arguments.d
-    query_options['inc_extensionless'] = arguments.include_extensionless
+    query_options["start"] = arguments.start
+    query_options["end"] = arguments.end
+    query_options["root_directory"] = arguments.d
+    query_options["inc_extensionless"] = arguments.include_extensionless
 
     if arguments.exclude_paths is not None:
-        exclude_paths = arguments.exclude_paths.split(',')
+        exclude_paths = arguments.exclude_paths.split(",")
     else:
         exclude_paths = None
-    query_options['path_filter'] = helpers.path_filter(
-        arguments.extensions.split(','),
-        exclude_paths
+    query_options["path_filter"] = helpers.path_filter(
+        arguments.extensions.split(","), exclude_paths
     )
 
     options = {}
-    options['query'] = Query(**query_options)
+    options["query"] = Query(**query_options)
     if arguments.editor is not None:
-        options['editor'] = arguments.editor
-    options['just_count'] = arguments.count
-    options['default_no'] = arguments.default_no
+        options["editor"] = arguments.editor
+    options["just_count"] = arguments.count
+    options["default_no"] = arguments.default_no
 
     return options
 
@@ -489,5 +550,5 @@ def main():
     run_interactive(**options)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
